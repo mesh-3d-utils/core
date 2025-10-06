@@ -1,0 +1,56 @@
+{
+  "name": "@mesh-3d-utils/core",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mesh-3d-utils/core.git"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "prebuild": "pnpm run clean",
+    "build": "tsc",
+    "predev": "pnpm run clean",
+    "dev": "tsc --watch",
+    "prebuild:debug": "pnpm run clean",
+    "build:debug": "tsc -p tsconfig.debug.json",
+    "pretest": "pnpm run build:debug",
+    "test": "pnpm run test:run",
+    "pretest:run": "",
+    "test:run": "ava"
+  },
+  "dependencies": {
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@types/three": "catalog:",
+    "@code-essentials/tsconfig": "catalog:",
+    "ava": "catalog:",
+    "@ava/typescript": "catalog:",
+    "typescript": "catalog:"
+  },
+  "ava": {
+    "files": [
+      "src/**/*.spec.ts"
+    ],
+    "typescript": {
+      "rewritePaths": {
+        "src/": "dist/"
+      },
+      "extensions": [
+        "ts"
+      ],
+      "compile": false
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+    "extends": "@code-essentials/tsconfig/tsconfig.json",
+    "compilerOptions": {
+        "target": "ESNext",
+        "outDir": "dist",
+        "rootDir": "src",
+        "composite": true
+    },
+    "include": ["src"],
+    "exclude": ["node_modules", "src/**/*.spec.ts"]
+}
