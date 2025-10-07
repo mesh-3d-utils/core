@@ -48,19 +48,63 @@ export class GeometryMeshObject3DHelper {
     }
 
     copyToObj3D() {
-        const bufferGeometry = new THREE.BufferGeometry()
-        const positions_x = this.geometry.mesh.vertices.x
-        const positions_y = this.geometry.mesh.vertices.y
-        const positions_z = this.geometry.mesh.vertices.z
-        const positions_array = new Float32Array(positions_x.length * 3)
-        for (let i = 0; i < positions_x.length; i++) {
-            positions_array[i * 3 + 0] = positions_x[i]!
-            positions_array[i * 3 + 1] = positions_y[i]!
-            positions_array[i * 3 + 2] = positions_z[i]!
+        if (!(this.obj.geometry instanceof THREE.BufferGeometry))
+            throw new Error('geometry is not a BufferGeometry');
+    
+        const geom = this.obj.geometry as THREE.BufferGeometry;
+    
+        const positions_x = this.geometry.mesh.vertices.x;
+        const positions_y = this.geometry.mesh.vertices.y;
+        const positions_z = this.geometry.mesh.vertices.z;
+        const indices = this.geometry.mesh.faces.indices;
+    
+        const vertexCount = positions_x.length;
+        const indexCount = indices.length;
+    
+        // Ensure position buffer exists and is large enough
+        const posAttr = geom.getAttribute('position') as THREE.BufferAttribute | undefined;
+        const requiredPosLen = vertexCount * 3;
+    
+        let posArray: Float32Array;
+        if (!posAttr || posAttr.array.length < requiredPosLen) {
+            // Allocate new, larger buffer
+            posArray = new Float32Array(requiredPosLen);
+            geom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        } else {
+            posArray = posAttr.array as Float32Array;
         }
-        bufferGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions_array, 3))
-        bufferGeometry.setIndex(new THREE.Uint32BufferAttribute(this.geometry.mesh.faces.indices, 1))
-
-        this.obj.geometry = bufferGeometry
-    }
+    
+        // Fill position buffer
+        for (let i = 0; i < vertexCount; i++) {
+            const base = i * 3;
+            posArray[base + 0] = positions_x[i]!;
+            posArray[base + 1] = positions_y[i]!;
+            posArray[base + 2] = positions_z[i]!;
+        }
+    
+        geom.getAttribute('position').needsUpdate = true;
+    
+        // Ensure index buffer exists and is large enough
+        const indexAttr = geom.getIndex() as THREE.BufferAttribute | null;
+        const requiredIndexLen = indexCount;
+    
+        let indexArray: Uint32Array;
+        if (!indexAttr || indexAttr.array.length < requiredIndexLen) {
+            indexArray = new Uint32Array(requiredIndexLen);
+            geom.setIndex(new THREE.BufferAttribute(indexArray, 1));
+        } else {
+            indexArray = indexAttr.array as Uint32Array;
+        }
+    
+        // Fill index buffer
+        indexArray.set(indices);
+        geom.index!.needsUpdate = true;
+    
+        // Optional: adjust draw range if the count changed
+        geom.setDrawRange(0, indexCount);
+    
+        // Optional: recompute bounding volumes if used
+        geom.computeBoundingBox();
+        geom.computeBoundingSphere();
+    }    
 }

@@ -250,11 +250,14 @@ export class MeshGeometry implements Geometry {
         const indices = geometry.getIndex()!
         const faces: number[][] = []
 
-        for (let i = 0; i < indices.count; i++) {
+        if (indices.count % 3 !== 0)
+            throw new Error('indices.count must be a multiple of 3')
+
+        for (let offset = 0; offset < indices.count; ) {
             faces.push([
-                indices.array[i * 3 + 0]!,
-                indices.array[i * 3 + 1]!,
-                indices.array[i * 3 + 2]!,
+                indices.array[offset++]!,
+                indices.array[offset++]!,
+                indices.array[offset++]!,
             ])
         }
 
