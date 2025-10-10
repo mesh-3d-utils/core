@@ -1,5 +1,5 @@
 import { Matrix4 } from "three"
-import { GeometryMap, GeometryMapLengths } from "../geometry.js"
+import { GeometryMap, GeometryMapLengths, GeometryMapping } from "../geometry.js"
 
 export interface ArrayGeometryInternalMap {
     /**
@@ -43,8 +43,8 @@ export class ArrayGeometryMap implements GeometryMap {
         this.base2self = initial.base2self
 
         this.lengths = {
-            base: initial.self2base.offset1.length,
-            self: initial.base2self.offset1.length,
+            base: initial.base2self.offset1.length,
+            self: initial.self2base.offset1.length,
         }
     }
 
@@ -129,7 +129,7 @@ export class ArrayGeometryMap implements GeometryMap {
     }
 
     static compile(ab: GeometryMap, bc: GeometryMap): ArrayGeometryMap {
-        if (ab.lengths.base !== bc.lengths.self)
+        if (ab.lengths.self !== bc.lengths.base)
             throw new Error("lengths do not match")
 
         // Helper function that works for both directions
@@ -155,28 +155,29 @@ export class ArrayGeometryMap implements GeometryMap {
             const t1 = new Matrix4()
             const t2 = new Matrix4()
 
+            let i1: number
+            let m1: GeometryMapping
+            let m2: GeometryMapping
+
             for (i_base = 0, i_1 = 0, n_1 = 0, i_self = 0, i_self16 = 0;
                 i_base !== n_base;
                 offset1[i_base++] = i_self) {
-                const m1 = m01(i_base)
+                m1 = m01(i_base)
                 
                 for (i_1 = 0, n_1 = m1.indices.length, i_1_16 = 0;
                     i_1 !== n_1;
                     i_1++, i_1_16 += 16) {
-                    const i1 = m1.indices[i_1]!
+                    i1 = m1.indices[i_1]!
                     t1.fromArray(m1.transforms.subarray(i_1_16, i_1_16 + 16))
-                    const m2 = m12(i1)
+                    m2 = m12(i1)
 
-                    n_2 = m2.indices.length
-                    indices.set(m2.indices, i_self)
-                    i_self += n_2
-
-                    for (i_2 = 0, i_2_16 = 0;
+                    for (i_2 = 0, i_2_16 = 0, n_2 = m2.indices.length;
                         i_2 !== n_2;
-                        i_2++, i_2_16 += 16) {
+                        i_2++, i_2_16 += 16, i_self++, i_self16 += 16) {
+                        indices[i_self] = m2.indices[i_2]!
                         t2.fromArray(m2.transforms.subarray(i_2_16, i_2_16 + 16))
                         t2.premultiply(t1)
-                        t2.toArray(transforms.subarray(i_self16, i_self16 += 16))
+                        t2.toArray(transforms.subarray(i_self16, i_self16 + 16))
                     }
                 }
             }
@@ -189,11 +190,11 @@ export class ArrayGeometryMap implements GeometryMap {
         }
 
         // Forward mapping: A -> C via B
-        const self2base = compileDirection(true)
+        const base2self = compileDirection(true)
 
-        // Backward mapping: C -> A via B (symmetrical algorithm)
-        const base2self = compileDirection(false)
+        // Backward mapping: C -> A via B
+        const self2base = compileDirection(false)
 
-        return new ArrayGeometryMap({ self2base, base2self })
+        return new ArrayGeometryMap({ base2self, self2base })
     }
 }

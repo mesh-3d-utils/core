@@ -78,34 +78,24 @@ export class SymmetricGeometryMap implements GeometryMap {
     }
 
     toBase(index: number): GeometryMapping {
-        const offset0 = index === 0 ? 0 : this.self2base.index[index - 1]!
-        const offset1 = this.self2base.index[index]!
-        const indices = this.self2base.index.subarray(offset0, offset1)
-        const transforms = new Float32Array(indices.length * 16)
-        for(let i = 0, offset: number; i < indices.length; i++) {
-            offset = indices[i]!
-            transforms.set(this.self2base.transform.subarray(offset * 16, (offset + 1) * 16), i * 16)
-        }
+        const indedx1 = this.self2base.index[index]!
+        const indices = new Uint32Array([indedx1])
+        const transforms = this.self2base.transform.subarray(index * 16, (index + 1) * 16)
         
         return {
             indices,
-            transforms
+            transforms,
         }
     }
 
     fromBase(index: number): GeometryMapping {
-        const offset0 = index === 0 ? 0 : this.base2self.index[index - 1]!
-        const offset1 = this.base2self.index[index]!
-        const indices = this.base2self.index.subarray(offset0, offset1)
-        const transforms = new Float32Array(indices.length * 16)
-        for(let i = 0, offset: number; i < indices.length; i++) {
-            offset = indices[i]!
-            transforms.set(this.base2self.transform.subarray(offset * 16, (offset + 1) * 16), i * 16)
-        }
+        const indedx1 = this.base2self.index[index]!
+        const indices = new Uint32Array([indedx1])
+        const transforms = this.base2self.transform.subarray(index * 16, (index + 1) * 16)
         
         return {
             indices,
-            transforms
+            transforms,
         }
     }
 }

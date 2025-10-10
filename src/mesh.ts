@@ -1,3 +1,5 @@
+import { Vector3Tuple } from "three"
+
 export function edgeKey(faceEdge: FaceEdge): string {
     const v0 = faceEdge.face.vertices[faceEdge.edge]!
     const v1 = faceEdge.face.vertices[(faceEdge.edge + 1) % faceEdge.face.edges]!
@@ -115,6 +117,16 @@ export interface MeshInfoBuffers extends MeshInfo {
     }
 }
 
+export function isMeshInfoBuffers(info: MeshInfo): info is MeshInfoBuffers {
+    return (
+        info.vertices.x instanceof Float32Array &&
+        info.vertices.y instanceof Float32Array &&
+        info.vertices.z instanceof Float32Array &&
+        info.faces.indicesOffset1 instanceof Uint32Array &&
+        info.faces.indices instanceof Uint32Array
+    )
+}
+
 export class Mesh<Info extends MeshInfo = MeshInfo> {
     get vertices(): Info["vertices"] {
         return this.info.vertices
@@ -131,7 +143,7 @@ export class Mesh<Info extends MeshInfo = MeshInfo> {
     constructor(readonly info: Info) {
     }
 
-    clone<Modifiable extends boolean = false>({ modifiable = <Modifiable>false }: { modifiable: Modifiable }): Modifiable extends true ? Mesh<MeshInfoModifiable> : Mesh<MeshInfoBuffers> {
+    cloneInfo<Modifiable extends boolean = false>({ modifiable = <Modifiable>false }: { modifiable: Modifiable }): Modifiable extends true ? MeshInfoModifiable : MeshInfoBuffers {
         const { vertices, faces, edges } = this.info
         const info = <Modifiable extends true ? MeshInfoModifiable : MeshInfoBuffers>(
             modifiable ? {
@@ -163,7 +175,11 @@ export class Mesh<Info extends MeshInfo = MeshInfo> {
             }
         )
 
-        return <ReturnType<typeof this.clone<Modifiable>>>new Mesh(info)
+        return info
+    }
+
+    clone<Modifiable extends boolean = false>(settings: { modifiable: Modifiable }): Mesh<ReturnType<typeof this.cloneInfo<Modifiable>>> {
+        return new Mesh(this.cloneInfo(settings))
     }
 
     face_adjacent(faceEdge: FaceEdge) {
@@ -344,6 +360,21 @@ export class Mesh<Info extends MeshInfo = MeshInfo> {
         return <ReturnType<typeof this.vertex_neighbors<NoteDiscontinuity>>>neighbors
     }
 
+    vertex(index: number) {
+        return Mesh.vertex(this.info, index)
+    }
+
+    static vertex(info: MeshInfo, index: number): Vector3Tuple {
+        if (index < 0 || index >= info.vertices.x.length)
+            throw new Error('vertex out of bounds')
+
+        return [
+            info.vertices.x[index]!,
+            info.vertices.y[index]!,
+            info.vertices.z[index]!,
+        ]
+    }
+
     face(index: number) {
         return Mesh.face(this.info, index)
     }
@@ -419,10 +450,166 @@ export class Mesh<Info extends MeshInfo = MeshInfo> {
     }
 
     accelerated() {
-        // in future, test if this mesh info is already buffers
-        return this.clone({ modifiable: false })
+        const info = isMeshInfoBuffers(this.info) ? this.info : this.cloneInfo({ modifiable: false })
+        return new MeshAccelerated(info)
     }
 }
 
 export class MeshAccelerated extends Mesh<MeshInfoBuffers> {
+    override accelerated(): MeshAccelerated {
+        return this
+    }
+
+    vertexInfoMean(vertices: Uint32Array) {
+        let c_x = 0
+        let c_y = 0
+        let c_z = 0
+
+        const { x, y, z } = this.info.vertices
+        let vertex: number
+        const n = vertices.length
+        for (let i = 0; i < n; i++) {
+            vertex = vertices[i]!
+            c_x += x[vertex]!
+            c_y += y[vertex]!
+            c_z += z[vertex]!
+        }
+
+        c_x /= n
+        c_y /= n
+        c_z /= n
+
+        return {
+            center: <Vector3Tuple>[c_x, c_y, c_z],
+        }
+    }
+
+    faceInfoMean(faces: Uint32Array) {
+        const normals_x = new Float32Array(faces.length)
+        const normals_y = new Float32Array(faces.length)
+        const normals_z = new Float32Array(faces.length)
+
+        const centers_x = new Float32Array(faces.length)
+        const centers_y = new Float32Array(faces.length)
+        const centers_z = new Float32Array(faces.length)
+
+        const { x, y, z } = this.info.vertices
+        const { indicesOffset1, indices } = this.info.faces
+
+        let v0_x: number
+        let v0_y: number
+        let v0_z: number
+        let v1_x: number
+        let v1_y: number
+        let v1_z: number
+        let v2_x: number
+        let v2_y: number
+        let v2_z: number
+        let v01_x: number
+        let v01_y: number
+        let v01_z: number
+        let v02_x: number
+        let v02_y: number
+        let v02_z: number
+        
+        let n_x: number
+        let n_y: number
+        let n_z: number
+
+        let c_x: number
+        let c_y: number
+        let c_z: number
+
+        const n = faces.length
+        let face: number
+        let offset0: number
+        let offset1: number
+        let k: number   
+
+        for (let i = 0; i < n; i++) {
+            face = faces[i]!
+            offset0 = face === 0 ? 0 : indicesOffset1[face - 1]!
+            offset1 = indicesOffset1[face]!
+            k = offset1 - offset0
+
+            c_x = 0
+            c_y = 0
+            c_z = 0
+            
+            for (let j = 0; j < k; j++) {
+                const vertex = indices[offset0 + j]!
+                c_x += x[vertex]!
+                c_y += y[vertex]!
+                c_z += z[vertex]!
+            }
+
+            centers_x[i] = c_x / k
+            centers_y[i] = c_y / k
+            centers_z[i] = c_z / k
+
+            v0_x = x[indices[offset0]!]!
+            v0_y = y[indices[offset0]!]!
+            v0_z = z[indices[offset0]!]!
+
+            v1_x = x[indices[offset0 + 1]!]!
+            v1_y = y[indices[offset0 + 1]!]!
+            v1_z = z[indices[offset0 + 1]!]!
+
+            v2_x = x[indices[offset0 + 2]!]!
+            v2_y = y[indices[offset0 + 2]!]!
+            v2_z = z[indices[offset0 + 2]!]!
+
+            v01_x = v1_x - v0_x
+            v01_y = v1_y - v0_y
+            v01_z = v1_z - v0_z
+
+            v02_x = v2_x - v0_x
+            v02_y = v2_y - v0_y
+            v02_z = v2_z - v0_z
+
+            n_x = v01_y * v02_z - v01_z * v02_y
+            n_y = v01_z * v02_x - v01_x * v02_z
+            n_z = v01_x * v02_y - v01_y * v02_x
+
+            normals_x[i] = n_x
+            normals_y[i] = n_y
+            normals_z[i] = n_z
+        }
+
+        // average centers
+        c_x = 0
+        c_y = 0
+        c_z = 0
+
+        for (let i = 0; i < n; i++) {
+            c_x += centers_x[i]!
+            c_y += centers_y[i]!
+            c_z += centers_z[i]!
+        }
+
+        c_x /= n
+        c_y /= n
+        c_z /= n
+
+        // average normals
+
+        n_x = 0
+        n_y = 0
+        n_z = 0
+
+        for (let i = 0; i < n; i++) {
+            n_x += normals_x[i]!
+            n_y += normals_y[i]!
+            n_z += normals_z[i]!
+        }
+
+        n_x /= n
+        n_y /= n
+        n_z /= n
+
+        return {
+            center: <Vector3Tuple>[c_x, c_y, c_z],
+            normal: <Vector3Tuple>[n_x, n_y, n_z],
+        }
+    }
 }

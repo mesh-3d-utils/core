@@ -18,6 +18,8 @@ export interface GeometryMapLengths {
 
 export interface GeometryMap {
     readonly lengths: Readonly<GeometryMapLengths>
+    
+    //TODO: to/fromBase for indices array
     toBase(index: number): GeometryMapping
     fromBase(index: number): GeometryMapping
 }
@@ -108,6 +110,6 @@ export class MeshGeometry implements Geometry {
             },
         })
 
-        return new MeshGeometry(mesh)
+        return new MeshGeometry(mesh.accelerated())
     }
 }
