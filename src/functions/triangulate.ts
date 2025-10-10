@@ -1,12 +1,13 @@
-import { ArrayGeometryInternalMap, ArrayGeometryMap, Geometry, GeometryFunction, IdentityGeometryMap } from "../geometry.js";
+import { Geometry, GeometryFunction } from "../geometry.js";
+import { ArrayGeometryInternalMap, ArrayGeometryMap, IdentityGeometryMap } from "../mapping/index.js";
 import { MeshAccelerated, MeshInfoBuffers } from "../mesh.js";
 
 export class TriangulateGeometryFunction implements GeometryFunction {
     mesh!: MeshAccelerated
-    map = {
-        vertex: new IdentityGeometryMap(),
-        face: new ArrayGeometryMap()
-    } as const
+    map!: Readonly<{
+        vertex: IdentityGeometryMap
+        face: ArrayGeometryMap
+    }>
 
     constructor(readonly base: Geometry) {
         this.update()
@@ -83,15 +84,20 @@ export class TriangulateGeometryFunction implements GeometryFunction {
         }
 
         this.mesh = new MeshAccelerated(info1)
-        this.map.face.base2self = {
-            offset1: faces_map_base2self_0.offset1,
-            indices: faces_map_base2self_0.indices.subarray(0, n_tris),
-            transforms: faces_map_base2self_0.transforms.subarray(0, n_tris * 16),
-        }
-        this.map.face.self2base = {
-            offset1: faces_map_self2base_0.offset1.subarray(0, n_tris),
-            indices: faces_map_self2base_0.indices.subarray(0, n_tris),
-            transforms: faces_map_self2base_0.transforms.subarray(0, n_tris * 16),
+        this.map = {
+            vertex: new IdentityGeometryMap(info.vertices.x.length),
+            face: new ArrayGeometryMap({
+                base2self: {
+                    offset1: faces_map_base2self_0.offset1,
+                    indices: faces_map_base2self_0.indices.subarray(0, n_tris),
+                    transforms: faces_map_base2self_0.transforms.subarray(0, n_tris * 16),
+                },
+                self2base: {
+                    offset1: faces_map_self2base_0.offset1.subarray(0, n_tris),
+                    indices: faces_map_self2base_0.indices.subarray(0, n_tris),
+                    transforms: faces_map_self2base_0.transforms.subarray(0, n_tris * 16),
+                }
+            })
         }
     }
 }

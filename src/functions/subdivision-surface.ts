@@ -1,4 +1,5 @@
-import { ArrayGeometryMap, Geometry, GeometryFunction } from "../geometry.js"
+import { Geometry, GeometryFunction } from "../geometry.js"
+import { ArrayGeometryMap } from "../mapping/array.js"
 import { Mesh, MeshAccelerated, edgeKey1 } from "../mesh.js"
 import { Matrix4, Vector3 } from "three"
 

@@ -1,6 +1,7 @@
 {
     "extends": "@code-essentials/tsconfig/tsconfig.debug.json",
     "compilerOptions": {
+        "target": "ESNext",
         "outDir": "dist",
         "rootDir": "src",
     },
