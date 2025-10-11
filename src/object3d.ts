@@ -6,6 +6,16 @@ export interface GeometryObject3D extends THREE.Mesh {
     geometry1?: Geometry
 }
 
+// Extend three.js event map so custom Object3D events are recognized by TS
+declare module 'three' {
+    interface Object3DEventMap {
+        geometryUpdate: { type: 'geometryUpdate' }
+        geometryChanged: { type: 'geometryChanged' }
+        meshUpdate: { type: 'meshUpdate' }
+        transformChange: { type: 'transformChange' }
+    }
+}
+
 export class GeometryMeshObject3DHelper {
     readonly obj: GeometryObject3D
     #geometry: TriangulateGeometryFunction
@@ -17,6 +27,7 @@ export class GeometryMeshObject3DHelper {
     set geometry(geometry: TriangulateGeometryFunction) {
         this.#geometry = geometry
         this.obj.geometry1 = geometry
+        this.obj.dispatchEvent({ type: 'geometryChanged' })
     }
 
     get meshRoot() {
@@ -40,11 +51,14 @@ export class GeometryMeshObject3DHelper {
                     new TriangulateGeometryFunction(this.obj.geometry1)
             ) :
             new TriangulateGeometryFunction(MeshGeometry.fromThreeGeometry(obj.geometry))
+        
+        obj.addEventListener('geometryUpdate', () => this.copyToObj3D())
     }
 
     update() {
         this.geometry.update()
-        this.copyToObj3D()
+        // dispatch obj geometryUpdate event
+        this.obj.dispatchEvent({ type: 'geometryUpdate' })
     }
 
     copyToObj3D() {
@@ -106,5 +120,8 @@ export class GeometryMeshObject3DHelper {
         // Optional: recompute bounding volumes if used
         geom.computeBoundingBox();
         geom.computeBoundingSphere();
-    }    
+
+        // notify listeners that mesh buffers were updated
+        this.obj.dispatchEvent({ type: 'meshUpdate' })
+    }
 }
